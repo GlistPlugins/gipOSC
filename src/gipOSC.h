@@ -41,6 +41,7 @@
 #include "osc/OscReceivedElements.h"
 #include "osc/OscPacketListener.h"
 #include "ip/UdpSocket.h"
+#include <functional>
 
 /*
  * A GlistEngine component that implements app to app communication
@@ -56,15 +57,24 @@ class gipOSC : public gBaseComponent {
 public:
 	static const int DEFAULTPORT_REMOTE = 7000;
 	static const int DEFAULTPORT_LOCAL = 7000;
-	static const int OUTPUT_BUFFER_SIZE = 65535;
-	static const unsigned int INPUT_BUFFER_SIZE = 65535;
+	static const int OUTPUT_BUFFER_SIZE = 4096;
+	static const unsigned int INPUT_BUFFER_SIZE = 4096;
 
 	gipOSC();
 	virtual ~gipOSC();
 
 	bool initialize(std::string remoteReceiverIp, int remoteReceiverPort = DEFAULTPORT_REMOTE, int localListenerPort = DEFAULTPORT_LOCAL);
+	void update();
+
+	void setMessageCallback(std::function<void(std::string)> messageCallback);
+	void setIntegerCallback(std::function<void(int)> integerCallback);
+	void setFloatCallback(std::function<void(float)> floatCallback);
+	void setBoolCallback(std::function<void(bool)> boolCallback);
+
 	void sendMessage(std::string message);
-	std::string receiveMessage();
+	void sendInteger(int value);
+	void sendFloat(float value);
+	void sendBool(bool value);
 
 private:
 	class gipOscPackListener : public osc::OscPacketListener {
@@ -72,18 +82,29 @@ private:
 		gipOscPackListener();
 		virtual ~gipOscPackListener();
 		void ProcessMessage(const osc::ReceivedMessage& m, const IpEndpointName& remoteEndpoint);
+		void setMessageCallback(std::function<void(std::string)> messageCallback);
+		void setIntegerCallback(std::function<void(int)> integerCallback);
+		void setFloatCallback(std::function<void(float)> floatCallback);
+		void setBoolCallback(std::function<void(bool)> boolCallback);
+
+	private:
+		std::function<void(std::string)> messagecallback;
+		std::function<void(int)> integercallback;
+		std::function<void(float)> floatcallback;
+		std::function<void(bool)> boolcallback;
 	};
 
 	std::string remoteip;
 	int remoteport;
 	int localport;
-	UdpTransmitSocket* transmitSocket;
+	UdpTransmitSocket* transmitsocket;
 	char* buffer, *receivebuffer;
-	static std::string receivedmessage;
+
 	gipOscPackListener listener;
-	UdpListeningReceiveSocket* s;
-	UdpReceiveSocket* receiveSocket;
+	UdpReceiveSocket* receivesocket;
 	IpEndpointName localendpoint;
+
+	void receive();
 };
 
 #endif /* SRC_GIPOSC_H_ */

@@ -8,20 +8,22 @@
 #include "gipOSC.h"
 #include <fcntl.h>
 
-std::string gipOSC::receivedmessage = "";
-
 
 gipOSC::gipOSC() {
 	remoteip = "127.0.0.1";
 	remoteport = DEFAULTPORT_REMOTE;
 	localport = DEFAULTPORT_LOCAL;
-	receivedmessage = "";
+	transmitsocket = nullptr;
+	receivebuffer = nullptr;
+	receivesocket = nullptr;
+	buffer = nullptr;
 }
 
 gipOSC::~gipOSC() {
-	if(transmitSocket != nullptr) delete transmitSocket;
+	if(transmitsocket != nullptr) delete transmitsocket;
 	if(buffer != nullptr) delete buffer;
-	if(s != nullptr) delete s;
+	if(receivesocket != nullptr) delete receivesocket;
+	if(receivebuffer != nullptr) delete receivebuffer;
 }
 
 bool gipOSC::initialize(std::string remoteReceiverIp, int remoteReceiverPort, int localListenerPort) {
@@ -32,12 +34,12 @@ bool gipOSC::initialize(std::string remoteReceiverIp, int remoteReceiverPort, in
 	receivebuffer = new char[OUTPUT_BUFFER_SIZE];
 
 	try{
-		transmitSocket = new UdpTransmitSocket(IpEndpointName(remoteip.c_str(), remoteport));
+		transmitsocket = new UdpTransmitSocket(IpEndpointName(remoteip.c_str(), remoteport));
 	} catch(std::exception &e){
 		gLoge("gipOSC") << "Sender socket is not created!";
-		if(transmitSocket != nullptr){
-			delete transmitSocket;
-			transmitSocket = nullptr;
+		if(transmitsocket != nullptr){
+			delete transmitsocket;
+			transmitsocket = nullptr;
 		}
 		return false;
 	}
@@ -45,50 +47,102 @@ bool gipOSC::initialize(std::string remoteReceiverIp, int remoteReceiverPort, in
 
 	try{
 		localendpoint = IpEndpointName(IpEndpointName::ANY_ADDRESS, localport);
-		receiveSocket = new UdpReceiveSocket(localendpoint);
-//		s = new UdpListeningReceiveSocket(IpEndpointName(IpEndpointName::ANY_ADDRESS, localport), &listener);
+		receivesocket = new UdpReceiveSocket(localendpoint);
 	} catch(std::exception &e){
 		gLoge("gipOSC") << "Receiver socket is not created!";
-		if(s != nullptr){
-			delete s;
-			s = nullptr;
-		}
 		return false;
 	}
 	gLogi("gipOSC") << "Receiver socket is created!";
 
-	int flags = fcntl(receiveSocket->Socket(), F_GETFL, 0);
+	int flags = fcntl(receivesocket->Socket(), F_GETFL, 0);
 	if (flags == -1) gLogi("gipOSC") << "No unblocking!";
 	flags = false ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-	fcntl(receiveSocket->Socket(), F_SETFL, flags);
-
+	fcntl(receivesocket->Socket(), F_SETFL, flags);
 
 	return true;
 }
 
-void gipOSC::sendMessage(std::string message) {
-    osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
-    p << osc::BeginBundleImmediate << osc::BeginMessage("1") << message.c_str() << osc::EndMessage << osc::EndBundle;
-    transmitSocket->Send(p.Data(), p.Size());
+void gipOSC::setMessageCallback(std::function<void(std::string)> messageCallback) {
+	listener.setMessageCallback(messageCallback);
 }
 
-std::string gipOSC::receiveMessage() {
-//    s->Run();
-//    s->RunUntilSigInt();
+void gipOSC::setIntegerCallback(std::function<void(int)> integerCallback) {
+	listener.setIntegerCallback(integerCallback);
+}
 
-//	gLogi("gipOSC") << "receiveMessage 1, isbound:" << receiveSocket->IsBound();
-	std::size_t size = receiveSocket->ReceiveFrom(localendpoint, receivebuffer, INPUT_BUFFER_SIZE);
-//	gLogi("gipOSC") << "receiveMessage 2";
+void gipOSC::setFloatCallback(std::function<void(float)> floatCallback) {
+	listener.setFloatCallback(floatCallback);
+}
+
+void gipOSC::setBoolCallback(std::function<void(bool)> boolCallback) {
+	listener.setBoolCallback(boolCallback);
+}
+
+
+void gipOSC::update() {
+	receive();
+}
+
+void gipOSC::sendMessage(std::string message) {
+	if(transmitsocket == nullptr) {
+		gLoge("gipOSC") << "Transmit socket is not ready!";
+		return;
+	}
+
+    osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
+    p << osc::BeginBundleImmediate << osc::BeginMessage("S") << message.c_str() << osc::EndMessage << osc::EndBundle;
+    transmitsocket->Send(p.Data(), p.Size());
+}
+
+void gipOSC::sendInteger(int value) {
+	if(transmitsocket == nullptr) {
+		gLoge("gipOSC") << "Transmit socket is not ready!";
+		return;
+	}
+
+    osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
+    p << osc::BeginBundleImmediate << osc::BeginMessage("I") << value << osc::EndMessage << osc::EndBundle;
+    transmitsocket->Send(p.Data(), p.Size());
+}
+
+void gipOSC::sendFloat(float value) {
+	if(transmitsocket == nullptr) {
+		gLoge("gipOSC") << "Transmit socket is not ready!";
+		return;
+	}
+
+    osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
+    p << osc::BeginBundleImmediate << osc::BeginMessage("F") << value << osc::EndMessage << osc::EndBundle;
+    transmitsocket->Send(p.Data(), p.Size());
+}
+
+void gipOSC::sendBool(bool value) {
+	if(transmitsocket == nullptr) {
+		gLoge("gipOSC") << "Transmit socket is not ready!";
+		return;
+	}
+
+    osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
+    p << osc::BeginBundleImmediate << osc::BeginMessage("B") << value << osc::EndMessage << osc::EndBundle;
+    transmitsocket->Send(p.Data(), p.Size());
+}
+
+
+void gipOSC::receive() {
+	if(receivesocket == nullptr) {
+		gLoge("gipOSC") << "Receiver socket is not ready!";
+		return;
+	}
+
+	std::size_t size = receivesocket->ReceiveFrom(localendpoint, receivebuffer, INPUT_BUFFER_SIZE);
 	if(size > 0) listener.ProcessPacket(receivebuffer, size, localendpoint);
-//	gLogi("gipOSC") << "receiveMessage 3";
-
-	std::string rm = receivedmessage;
-	receivedmessage = "";
-	return rm;
 }
 
 gipOSC::gipOscPackListener::gipOscPackListener() {
-
+	messagecallback = nullptr;
+	integercallback = nullptr;
+	floatcallback = nullptr;
+	boolcallback = nullptr;
 }
 
 gipOSC::gipOscPackListener::~gipOscPackListener() {
@@ -100,16 +154,46 @@ void gipOSC::gipOscPackListener::ProcessMessage(const osc::ReceivedMessage &m,
     (void) remoteEndpoint; // suppress unused parameter warning
 
     try {
-        if(std::strcmp(m.AddressPattern(), "1") == 0) {
+        if(std::strcmp(m.AddressPattern(), "S") == 0) {
             osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
             const char *a4;
             args >> a4 >> osc::EndMessage;
-            receivedmessage = std::string(a4);
-
-//            std::cout << "received '1' message with arguments:" << receivedmessage << "\n";
+            if(messagecallback != nullptr) messagecallback(a4);
+        } else if(std::strcmp(m.AddressPattern(), "I") == 0) {
+            osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
+            int i4;
+            args >> i4 >> osc::EndMessage;
+            if(integercallback != nullptr) integercallback(i4);
+        } else if(std::strcmp(m.AddressPattern(), "F") == 0) {
+            osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
+            float f4;
+            args >> f4 >> osc::EndMessage;
+            if(floatcallback != nullptr) floatcallback(f4);
+        } else if(std::strcmp(m.AddressPattern(), "B") == 0) {
+            osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
+            bool b4;
+            args >> b4 >> osc::EndMessage;
+            if(boolcallback != nullptr) boolcallback(b4);
         }
     } catch(osc::Exception& e) {
         std::cout << "error while parsing message";
     }
 }
+
+void gipOSC::gipOscPackListener::setMessageCallback(std::function<void(std::string)> messageCallback) {
+	messagecallback = messageCallback;
+}
+
+void gipOSC::gipOscPackListener::setIntegerCallback(std::function<void(int)> integerCallback) {
+	integercallback = integerCallback;
+}
+
+void gipOSC::gipOscPackListener::setFloatCallback(std::function<void(float)> floatCallback) {
+	floatcallback = floatCallback;
+}
+
+void gipOSC::gipOscPackListener::setBoolCallback(std::function<void(bool)> boolCallback) {
+	boolcallback = boolCallback;
+}
+
 

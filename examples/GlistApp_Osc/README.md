@@ -1,6 +1,4 @@
-# GlistApp
-App project template for [GlistEngine](https://github.com/GlistEngine/GlistEngine)
+# GlistApp_OSC
+Example GlistApp project both sending and receiving data via OSC
 
-Developers can clone this repository to initialize a new GlistEngine game project. More information can be found on the [readme](https://github.com/GlistEngine/GlistEngine/blob/main/README.md) page of GlistEngine repository.
-
-Please clone this repo under glist/myglistapps in your GlistEngine installation directory.
+Developers can put this GlistApp_OSC project under glist/mglistapps folder and test it.

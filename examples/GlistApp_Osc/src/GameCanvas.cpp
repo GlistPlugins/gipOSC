@@ -17,7 +17,7 @@ GameCanvas::~GameCanvas() {
 }
 
 void GameCanvas::setup() {
-	gLogi("GameCanvas") << "setup";
+//	gLogi("GameCanvas") << "setup";
 	logo.loadImage("glistengine_logo.png");
 }
 

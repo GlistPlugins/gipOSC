@@ -20,9 +20,14 @@ public:
 	void setup();
 	void update();
 
+	void oscMessageReceived(std::string message);
+	void oscIntegerReceived(int value);
+	void oscFloatReceived(float value);
+	void oscBoolReceived(bool value);
+
 private:
 	gipOSC osc;
-	int messagesentno;
+	bool datasent;
 };
 
 #endif /* EXAMPLES_TESTEXAMPLE_GAPP_H_ */

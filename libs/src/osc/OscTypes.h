@@ -49,8 +49,8 @@ typedef unsigned __int64 uint64;
 
 #elif defined(__x86_64__) || defined(_M_X64)
 
-typedef long int64;
-typedef unsigned long uint64;
+typedef long long int64;
+typedef unsigned long long uint64;
 
 #else
 

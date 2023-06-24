@@ -8,6 +8,12 @@ set(pluginname gipOSC)
 set(PLUGIN_DIR ${PLUGINS_DIR}/${pluginname})
 set(PLUGIN_LIBS_DIR ${PLUGIN_DIR}/libs)
 
+if(WIN32)
+ set(IpPath win32)
+else()
+ set(IpPath posix)
+endif(WIN32)
+
 
 ##### PLUGIN SOURCES #####
 list(APPEND PLUGIN_SRCS
@@ -17,8 +23,8 @@ list(APPEND PLUGIN_SRCS
 			${PLUGIN_LIBS_DIR}/src/osc/OscOutboundPacketStream.cpp
 			${PLUGIN_LIBS_DIR}/src/osc/OscTypes.cpp
 			${PLUGIN_LIBS_DIR}/src/ip/IpEndpointName.cpp
-			${PLUGIN_LIBS_DIR}/src/ip/posix/NetworkingUtils.cpp
-			${PLUGIN_LIBS_DIR}/src/ip/posix/UdpSocket.cpp
+			${PLUGIN_LIBS_DIR}/src/ip/${IpPath}/NetworkingUtils.cpp
+			${PLUGIN_LIBS_DIR}/src/ip/${IpPath}/UdpSocket.cpp
 )
 
 
@@ -52,6 +58,8 @@ endif(WIN32)
 if(WIN32)
 	list(APPEND PLUGIN_LINKLIBS
 				#Lib names
+				winmm
+				ws2_32
 	)
 elseif(LINUX)
 	list(APPEND PLUGIN_LINKLIBS

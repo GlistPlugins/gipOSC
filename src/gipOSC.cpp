@@ -60,13 +60,13 @@ bool gipOSC::initialize(std::string remoteReceiverIp, int remoteReceiverPort, in
 
 #if not defined(WIN32)
 	int flags = fcntl(receivesocket->Socket(), F_GETFL, 0);
-	if(flags == -1) gLogi("gipOSC") << "No unblocking!";
+	if(flags == -1) gLogw("gipOSC") << "No unblocking!";
 	flags == false ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
 	fcntl(receivesocket->Socket(), F_SETFL, flags);
 #else
 	unsigned long on = 1;
 	if (0 != ioctlsocket(receivesocket->Socket(), FIONBIO, &on)) {
-		gLogi("gipOSC") << "No unblocking!";
+		gLogw("gipOSC") << "No unblocking!";
 	}
 #endif
 

@@ -66,7 +66,7 @@ bool gipOSC::initialize(std::string remoteReceiverIp, int remoteReceiverPort, in
 #else
 	unsigned long on = 1;
 	if (0 != ioctlsocket(receivesocket->Socket(), FIONBIO, &on)) {
-	    /* Handle failure. */
+		gLogi("gipOSC") << "No unblocking!";
 	}
 #endif
 

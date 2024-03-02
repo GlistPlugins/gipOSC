@@ -106,7 +106,7 @@ void gipOSC::sendMessage(std::string message) {
 	}
 
     osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
-    p << osc::BeginBundleImmediate << osc::BeginMessage("S") << message.c_str() << osc::EndMessage << osc::EndBundle;
+    p << osc::BeginBundleImmediate << osc::BeginMessage("/s") << message.c_str() << osc::EndMessage << osc::EndBundle;
     transmitsocket->Send(p.Data(), p.Size());
 }
 
@@ -117,7 +117,7 @@ void gipOSC::sendInteger(int value) {
 	}
 
     osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
-    p << osc::BeginBundleImmediate << osc::BeginMessage("I") << value << osc::EndMessage << osc::EndBundle;
+    p << osc::BeginBundleImmediate << osc::BeginMessage("/i") << value << osc::EndMessage << osc::EndBundle;
     transmitsocket->Send(p.Data(), p.Size());
 }
 
@@ -128,7 +128,7 @@ void gipOSC::sendFloat(float value) {
 	}
 
     osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
-    p << osc::BeginBundleImmediate << osc::BeginMessage("F") << value << osc::EndMessage << osc::EndBundle;
+    p << osc::BeginBundleImmediate << osc::BeginMessage("/f") << value << osc::EndMessage << osc::EndBundle;
     transmitsocket->Send(p.Data(), p.Size());
 }
 
@@ -139,7 +139,7 @@ void gipOSC::sendBool(bool value) {
 	}
 
     osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
-    p << osc::BeginBundleImmediate << osc::BeginMessage("B") << value << osc::EndMessage << osc::EndBundle;
+    p << osc::BeginBundleImmediate << osc::BeginMessage("/B") << value << osc::EndMessage << osc::EndBundle;
     transmitsocket->Send(p.Data(), p.Size());
 }
 
@@ -170,26 +170,31 @@ void gipOSC::gipOscPackListener::ProcessMessage(const osc::ReceivedMessage &m,
     (void) remoteEndpoint; // suppress unused parameter warning
 
     try {
-        if(std::strcmp(m.AddressPattern(), "S") == 0) {
+        if(std::strcmp(m.AddressPattern(), "/s") == 0) {
             osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
             const char *a4;
             args >> a4 >> osc::EndMessage;
             if(messagecallback != nullptr) messagecallback(a4);
-        } else if(std::strcmp(m.AddressPattern(), "I") == 0) {
+        } else if(std::strcmp(m.AddressPattern(), "/i") == 0) {
             osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
             int i4;
             args >> i4 >> osc::EndMessage;
             if(integercallback != nullptr) integercallback(i4);
-        } else if(std::strcmp(m.AddressPattern(), "F") == 0) {
+        } else if(std::strcmp(m.AddressPattern(), "/f") == 0) {
             osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
             float f4;
             args >> f4 >> osc::EndMessage;
             if(floatcallback != nullptr) floatcallback(f4);
-        } else if(std::strcmp(m.AddressPattern(), "B") == 0) {
+        } else if(std::strcmp(m.AddressPattern(), "/B") == 0) {
             osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
             bool b4;
             args >> b4 >> osc::EndMessage;
             if(boolcallback != nullptr) boolcallback(b4);
+        } else {
+            osc::ReceivedMessageArgumentStream args = m.ArgumentStream();
+            const char *a4;
+            args >> a4 >> osc::EndMessage;
+            if(messagecallback != nullptr) messagecallback(a4);
         }
     } catch(osc::Exception& e) {
         std::cout << "error while parsing message";
